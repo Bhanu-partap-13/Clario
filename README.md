@@ -90,13 +90,3 @@ Follow these instructions to set up the project locally.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-<div align="center">
-  <p>Made with ❤️ for Hackathon.</p>
-</div>

@@ -58,16 +58,23 @@ export async function POST(req: Request) {
     // });
 
     const apiKey =
-      process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+      process.env.GROQ_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     if (!apiKey) {
-      console.error("OPENAI_API_KEY is missing");
+      console.error("GROQ_API_KEY / OPENAI_API_KEY is missing");
       return NextResponse.json(
-        { error: "OpenAI is not configured" },
+        { error: "AI provider is not configured" },
         { status: 500 }
       );
     }
 
-    const openai = new OpenAI({ apiKey });
+    const isGroq = apiKey.startsWith("gsk_") || !process.env.OPENAI_API_KEY;
+    const openai = new OpenAI({
+      apiKey,
+      baseURL: isGroq ? "https://api.groq.com/openai/v1" : undefined,
+    });
+    const model = isGroq ? "openai/gpt-oss-20b" : "gpt-4o-mini";
     const body = await req.json();
     const field = body.field || "Software Developer";
     const timeline = body.timeline || "3 months";
@@ -149,24 +156,29 @@ ${formatInstructions}
 `;
 
     const firstResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: model,
       messages: [{ role: "user", content: firstPrompt }],
-      temperature: 0.3,
-      max_tokens: 1800,
+      temperature: 0.1,
+      max_tokens: 3500,
+      response_format: { type: "json_object" },
     });
 
     const firstContent = firstResponse.choices[0]?.message?.content || "";
 
-    let repairedJSON: string;
+    let candidateJSON = firstContent;
     try {
-      repairedJSON = jsonrepair(firstContent);
+      candidateJSON = jsonrepair(firstContent);
     } catch {
-      repairedJSON = firstContent;
+      candidateJSON = firstContent;
     }
 
-    const secondPrompt = `
+    // Attempt second validation pass if needed, but gracefully fall back to first pass
+    let finalJSON = candidateJSON;
+    if (candidateJSON) {
+      try {
+        const secondPrompt = `
 Validate and refine this roadmap JSON for "${field}" (${timeline}, ${mode}):
-${repairedJSON}
+${candidateJSON}
 
 Verification Checklist:
 1. Validate roadmapTitle, description (1-2 lines), and duration "${timeline}".
@@ -179,27 +191,34 @@ Return valid JSON only.
 ${formatInstructions}
 `;
 
-    const secondResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: secondPrompt }],
-      temperature: 0.2,
-      max_tokens: 1800,
-    });
+        const secondResponse = await openai.chat.completions.create({
+          model: model,
+          messages: [{ role: "user", content: secondPrompt }],
+          temperature: 0.1,
+          max_tokens: 3500,
+          response_format: { type: "json_object" },
+        });
 
-    const secondContent = secondResponse.choices[0]?.message?.content || "";
-
-    let secondRepairedJSON: string;
-    try {
-      secondRepairedJSON = jsonrepair(secondContent);
-    } catch (repairErr) {
-      console.warn(
-        "Second JSON repair failed, using raw LLM output",
-        repairErr
-      );
-      secondRepairedJSON = secondContent;
+        const secondContent = secondResponse.choices[0]?.message?.content?.trim();
+        if (secondContent) {
+          try {
+            finalJSON = jsonrepair(secondContent);
+          } catch {
+            finalJSON = secondContent;
+          }
+        }
+      } catch (validationErr) {
+        console.warn("Roadmap validation pass skipped, using first pass:", validationErr);
+      }
     }
 
-    const finalParsed: any = await parser.parse(secondRepairedJSON);
+    let finalParsed: any;
+    try {
+      finalParsed = await parser.parse(finalJSON);
+    } catch (parseErr) {
+      console.warn("LangChain parser failed on refined JSON, trying first pass fallback...", parseErr);
+      finalParsed = await parser.parse(candidateJSON);
+    }
 
     // 🔹 Tavily Real-Time Web Search for Exact Official Documentation Links
     if (

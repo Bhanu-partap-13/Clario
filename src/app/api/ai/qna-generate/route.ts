@@ -55,9 +55,9 @@ export async function POST(request: Request) {
 
     const llm = new ChatGroq({
       apiKey,
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-20b",
       temperature: 0.7,
-      maxTokens: 600,
+      maxTokens: 1500,
       maxRetries: 3,
     });
 

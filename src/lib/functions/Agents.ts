@@ -5,13 +5,24 @@ import { tavily } from "@tavily/core";
 import { updateSelectedCareer } from "./dbActions";
 import { retrivalServer } from "./pineconeQuery";
 
-const getOpenAI = () =>
-  new OpenAI({
-    apiKey:
-      process.env.OPENAI_API_KEY ||
-      process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
-      "",
+const getAIClient = () => {
+  const apiKey =
+    process.env.GROQ_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is not configured.");
+  }
+
+  // Use Groq's OpenAI-compatible endpoint when using Groq API key
+  const isGroq = apiKey.startsWith("gsk_") || !process.env.OPENAI_API_KEY;
+
+  return new OpenAI({
+    apiKey,
+    baseURL: isGroq ? "https://api.groq.com/openai/v1" : undefined,
   });
+};
 
 type AgentContext = {
   question: string;
@@ -184,15 +195,16 @@ For accurate and personalized guidance, you can use two knowledge tools freely:
     },
   ];
 
-  const openai = getOpenAI();
+  const aiClient = getAIClient();
+  const modelName = process.env.GROQ_API_KEY ? "openai/gpt-oss-20b" : "gpt-4o-mini";
 
   try {
     while (true) {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const response = await aiClient.chat.completions.create({
+        model: modelName,
         messages: messages,
         tools: tools,
-        max_tokens: 600,
+        max_tokens: 1500,
       });
 
       const responseMessage = response.choices[0].message;
@@ -232,13 +244,13 @@ For accurate and personalized guidance, you can use two knowledge tools freely:
       }
     }
   } catch (error: any) {
-    console.error("Error in OpenAI runAgent:", error);
+    console.error("Error in AI runAgent:", error);
     if (
       error?.status === 429 ||
       String(error?.message).includes("429") ||
       String(error?.message).includes("quota")
     ) {
-      return "⚠️ OpenAI API rate limit or quota exceeded. Please check your plan/billing details or try again later.";
+      return "⚠️ AI API rate limit or quota exceeded. Please check your plan/billing details or try again later.";
     }
     return `⚠️ An error occurred: ${error?.message || "Please try again."}`;
   }

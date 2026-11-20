@@ -23,7 +23,7 @@ class QuestionGenerationPipeline {
       
       this.llm = new ChatGroq({
         apiKey: apiKey,
-        model: 'llama-3.3-70b-versatile', // Current active Groq model, reliable JSON output
+        model: 'openai/gpt-oss-20b', // Current active Groq model, reliable JSON output
         temperature: 0.5,
         maxTokens: 2500,
       });
