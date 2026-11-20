@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { UserDataProvider } from "@/context/UserDataProvider";
 import { InterviewProvider } from "@/context/InterviewContext";
+import { Analytics } from "@vercel/analytics/next";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -42,6 +43,7 @@ export default function RootLayout({
           <main>{children}</main>
         </UserDataProvider>
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
