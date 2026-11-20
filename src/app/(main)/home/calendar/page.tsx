@@ -24,7 +24,6 @@ import { Calendar1, Loader2 } from "lucide-react";
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { google } from "googleapis";
 
 const localizer = momentLocalizer(moment);
 // const DnDCalendar = withDragAndDrop(Calendar);
