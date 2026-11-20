@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export type DBMentor = {
   id: string;
   full_name: string;

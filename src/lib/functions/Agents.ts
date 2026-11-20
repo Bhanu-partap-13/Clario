@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import OpenAI from "openai";
 import { tavily } from "@tavily/core";
